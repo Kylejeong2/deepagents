@@ -144,6 +144,8 @@ class REPLMiddleware(AgentMiddleware[Any, ContextT, ResponseT]):
         capture_console: bool = True,
         ptc: PTCOption = False,
         skills_backend: "BackendProtocol | None" = None,
+        idle_ttl_sec: float = 3600.0,
+        max_active_threads: int | None = None,
     ) -> None:
         """See the class docstring for parameter details.
 
@@ -159,6 +161,15 @@ class REPLMiddleware(AgentMiddleware[Any, ContextT, ResponseT]):
                 ``SkillsMiddleware`` uses — the REPL treats skill file
                 paths relative to SKILL.md as coming from the same
                 store.
+            idle_ttl_sec: Close a LangGraph thread's Runtime after this
+                many seconds of inactivity. Eviction is lazy: the next
+                ``get()`` on any thread scans and closes stale slots.
+                On return, the user's ``globalThis`` scratchpad is
+                reset; installed skills re-install from a Runtime-
+                independent source cache without re-fetching.
+            max_active_threads: Optional hard cap on concurrent slots.
+                When exceeded, least-recently-used slots are evicted
+                regardless of TTL. ``None`` (default) = TTL only.
         """
         super().__init__()
         self._memory_limit = memory_limit
@@ -172,6 +183,8 @@ class REPLMiddleware(AgentMiddleware[Any, ContextT, ResponseT]):
             memory_limit=memory_limit,
             timeout=timeout,
             capture_console=capture_console,
+            idle_ttl_sec=idle_ttl_sec,
+            max_active_threads=max_active_threads,
         )
         self._base_system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(
             tool_name=tool_name,
